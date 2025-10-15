@@ -206,7 +206,7 @@ router.post('/:id/equip', async (req, res) => {
         .json({ ok: false, error: 'У вас нет этого предмета' });
     }
 
-    // Валидируем соответствие слота типу предмета (оружие → weapon, броня → armor)
+    // Валидируем соответствие слота типу предмета
     const itemDoc = await Item.findById(itemId);
     if (!itemDoc) {
       return res.status(404).json({ ok: false, error: 'Предмет не найден' });
@@ -218,7 +218,14 @@ router.post('/:id/equip', async (req, res) => {
         .json({ ok: false, error: 'Расходники нельзя экипировать' });
     }
 
-    const allowedSlotByType = { weapon: 'weapon', armor: 'armor' };
+    const allowedSlotByType = {
+      helmet: 'helmet',
+      boots: 'boots',
+      body: 'body',
+      gloves: 'gloves',
+      weapon: 'weapon',
+      ring: 'ring'
+    };
     const expectedSlot = allowedSlotByType[itemDoc.type];
     if (!expectedSlot || expectedSlot !== slot) {
       return res
@@ -373,15 +380,11 @@ router.get('/inventory/me/equipped', async (req, res) => {
 
     const equipped = inventory.items.filter(i => i.equipped && i.itemId);
 
-    // Агрегируем статы экипированных предметов
-    const baseStats = { damage: 0, defense: 0, energy: 0, health: 0, luck: 0 };
+    // Агрегируем статы экипированных предметов (только урон)
+    const baseStats = { damage: 0 };
     const stats = equipped.reduce((acc, invItem) => {
       const s = invItem.itemId.stats || {};
       acc.damage += s.damage || 0;
-      acc.defense += s.defense || 0;
-      acc.energy += s.energy || 0;
-      acc.health += s.health || 0;
-      acc.luck += s.luck || 0;
       return acc;
     }, baseStats);
 

@@ -15,7 +15,16 @@ const itemSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['weapon', 'armor', 'consumable', 'misc']
+      enum: [
+        'helmet',
+        'boots',
+        'body',
+        'gloves',
+        'weapon',
+        'ring',
+        'consumable',
+        'misc'
+      ]
     },
     rarity: {
       type: String,
@@ -30,10 +39,7 @@ const itemSchema = new mongoose.Schema(
     },
     stats: {
       damage: { type: Number, default: 0 },
-      defense: { type: Number, default: 0 },
-      energy: { type: Number, default: 0 },
-      health: { type: Number, default: 0 },
-      luck: { type: Number, default: 0 }
+      energy: { type: Number, default: 0 }
     },
     price: {
       type: Number,

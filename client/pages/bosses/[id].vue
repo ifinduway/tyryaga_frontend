@@ -7,8 +7,8 @@
           <div
             class="text-6xl"
             :class="{
-              'animate-pulse': boss?.state === 'active',
-              'animate-bounce': boss?.state === 'idle',
+              'animate-bounce': boss?.state === 'available',
+              'animate-pulse': boss?.state === 'in_battle',
               'animate-spin': boss?.state === 'dead'
             }"
           >
@@ -29,18 +29,21 @@
           <span
             class="px-3 py-1 rounded text-sm font-medium"
             :class="{
-              'bg-green-600 text-white': boss?.state === 'active',
-              'bg-gray-600 text-white': boss?.state === 'idle',
+              'bg-green-600 text-white': boss?.state === 'available',
+              'bg-orange-600 text-white': boss?.state === 'in_battle',
               'bg-red-600 text-white': boss?.state === 'dead'
             }"
           >
-            {{ getStatusText(boss?.state) }}
+            {{ getStatusText() }}
           </span>
         </div>
       </div>
 
       <!-- HP бар -->
-      <div v-if="boss?.state === 'active'" class="mt-6">
+      <div
+        v-if="boss?.state === 'available' || boss?.state === 'in_battle'"
+        class="mt-6"
+      >
         <div class="flex justify-between text-sm text-gray-400 mb-2">
           <span>Здоровье</span>
           <span>{{ boss?.currentHp }}/{{ boss?.maxHp }}</span>
@@ -130,14 +133,47 @@
     <div class="card">
       <h2 class="text-xl font-bold text-white mb-4">⚔️ Действия</h2>
 
-      <div v-if="boss?.state === 'active'" class="space-y-4">
+      <!-- Информация об экипированном оружии -->
+      <div v-if="equippedWeapon" class="mb-4 p-3 bg-gray-700 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm text-gray-400">Экипировано:</div>
+            <div class="text-white font-bold">⚔️ {{ equippedWeapon.name }}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-400">Бонус урона:</div>
+            <div class="text-red-400 font-bold">
+              +{{ equippedWeapon.stats?.damage || 0 }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="mb-4 p-3 bg-gray-700 rounded-lg text-center text-gray-400 text-sm"
+      >
+        Оружие не экипировано. Идите в профиль, чтобы экипировать оружие из
+        инвентаря.
+      </div>
+
+      <div
+        v-if="boss?.state === 'available' || boss?.state === 'in_battle'"
+        class="space-y-4"
+      >
         <div class="flex items-center gap-3">
           <button class="btn-primary" @click="attack(10)">
-            Базовый удар (10)
+            Базовый удар ({{ 10 + (equippedWeapon?.stats?.damage || 0) }})
           </button>
           <button class="btn-secondary" @click="attack(20)">
-            Сильный удар (20)
+            Сильный удар ({{ 20 + (equippedWeapon?.stats?.damage || 0) }})
           </button>
+        </div>
+        <div class="text-xs text-gray-400">
+          * Урон учитывает бонус от экипированного оружия, множитель урона ({{
+            user?.damageMultiplier || 1
+          }}) и шанс крита ({{ user?.critChance || 0 }}%) <br />Экипированная
+          броня может давать дополнительные бонусы к криту и урону
         </div>
       </div>
 
@@ -152,8 +188,8 @@
 
       <div v-else class="text-center text-gray-400 py-8">
         <div class="text-4xl mb-2">😴</div>
-        <p>Босс неактивен</p>
-        <p class="text-sm">Ожидайте активации</p>
+        <p>Босс недоступен</p>
+        <p class="text-sm">Ожидайте возрождения</p>
       </div>
     </div>
 
@@ -195,15 +231,17 @@ const bossId = route.params.id;
 const boss = ref(null);
 const damageAmount = ref(10); // не используется в UI, оставлено для лога
 const battleLog = ref([]);
+const equippedWeapon = ref(null);
 
 let socket = null;
 
-const getStatusText = state => {
-  switch (state) {
-    case 'active':
-      return 'Активен';
-    case 'idle':
-      return 'Неактивен';
+const getStatusText = () => {
+  if (!boss.value) return 'Загрузка...';
+  switch (boss.value.state) {
+    case 'available':
+      return 'Доступен';
+    case 'in_battle':
+      return 'В бою';
     case 'dead':
       return 'Побежден';
     default:
@@ -293,17 +331,44 @@ const connectSocket = () => {
   });
 
   socket.on('bossUpdate', data => {
+    console.log('📡 Получено обновление босса:', data);
     if (boss.value) {
       boss.value.currentHp = data.currentHp;
+      if (data.state) {
+        boss.value.state = data.state;
+      }
       if (Array.isArray(data.participants)) {
         boss.value.participants = data.participants;
       }
+      console.log(
+        '🔄 Обновлен босс:',
+        boss.value.name,
+        'HP:',
+        boss.value.currentHp,
+        'State:',
+        boss.value.state
+      );
     }
 
     // Добавляем в лог
     const currentUserId = user.value?._id || user.value?.id;
     const isMine = data.dealtBy?.userId === currentUserId;
-    const details = ` [base:${data.damage} × dmgMult:${data.dmgMult}${data.crit ? ` × critMult:${data.critEffectiveMult}` : ''}]`;
+
+    // Формируем детали урона
+    let details = ` [база:${data.damage}`;
+    if (data.weaponDamageBonus > 0) {
+      details += ` + оружие:${data.weaponDamageBonus}`;
+    }
+    details += ` = ${data.baseDamageWithWeapon}`;
+    details += ` × урон:${data.dmgMult}`;
+    if (data.critChanceBonus > 0) {
+      details += ` + крит.шанс:${data.critChance}%`;
+    }
+    if (data.crit) {
+      details += ` × крит:${data.critEffectiveMult}`;
+    }
+    details += `]`;
+
     const text = isMine
       ? `Вы нанесли ${data.realDamage ?? data.damageDealt} урона${data.crit ? ' (КРИТ)' : ''}${details}`
       : `${data.dealtBy.nickname} нанес ${data.realDamage ?? data.damageDealt} урона${data.crit ? ' (КРИТ)' : ''}${details}`;
@@ -311,21 +376,9 @@ const connectSocket = () => {
   });
 
   socket.on('bossDefeated', data => {
-    if (boss.value) {
-      boss.value.state = 'dead';
-      boss.value.currentHp = 0;
-    }
-
     battleLog.value.push({
       timestamp: Date.now(),
-      message: `Босс ${data.bossName} побежден!`
-    });
-  });
-
-  socket.on('playerJoined', data => {
-    battleLog.value.push({
-      timestamp: Date.now(),
-      message: `${data.nickname} присоединился к бою`
+      message: `Босс ${data.bossName} побежден игроком ${data.dealtBy.nickname}!`
     });
   });
 };
@@ -351,15 +404,45 @@ const loadBoss = async () => {
   }
 };
 
+// Загружаем информацию об экипированном оружии
+const loadEquippedWeapon = async () => {
+  try {
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/inventory/me/equipped`,
+      {
+        headers: {
+          Authorization: `Bearer ${unref(authStore.token)}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      const weapon = response.data.equipped.find(
+        item => item.slot === 'weapon'
+      );
+      if (weapon && weapon.itemId) {
+        equippedWeapon.value = weapon.itemId;
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки экипировки:', error);
+  }
+};
+
 onMounted(async () => {
-  await loadBoss();
+  await Promise.all([loadBoss(), loadEquippedWeapon()]);
   connectSocket();
+
+  // Обновляем экипировку при возвращении на страницу
+  window.addEventListener('focus', loadEquippedWeapon);
 });
 
 onUnmounted(() => {
   if (socket) {
     socket.disconnect();
   }
+  window.removeEventListener('focus', loadEquippedWeapon);
 });
 
 // Middleware для проверки аутентификации

@@ -11,6 +11,13 @@
     <div class="card">
       <div class="flex items-center space-x-4">
         <button
+          @click="loadBosses"
+          class="px-3 py-1 rounded text-sm transition-colors bg-green-600 text-white hover:bg-green-700"
+          title="Обновить список боссов"
+        >
+          🔄 Обновить
+        </button>
+        <button
           @click="filter = 'all'"
           class="px-3 py-1 rounded text-sm transition-colors"
           :class="
@@ -22,26 +29,37 @@
           Все
         </button>
         <button
-          @click="filter = 'active'"
+          @click="filter = 'available'"
           class="px-3 py-1 rounded text-sm transition-colors"
           :class="
-            filter === 'active'
-              ? 'bg-red-600 text-white'
+            filter === 'available'
+              ? 'bg-green-600 text-white'
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           "
         >
-          Активные
+          Доступны
         </button>
         <button
-          @click="filter = 'idle'"
+          @click="filter = 'in_battle'"
           class="px-3 py-1 rounded text-sm transition-colors"
           :class="
-            filter === 'idle'
+            filter === 'in_battle'
+              ? 'bg-orange-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          "
+        >
+          В бою
+        </button>
+        <button
+          @click="filter = 'dead'"
+          class="px-3 py-1 rounded text-sm transition-colors"
+          :class="
+            filter === 'dead'
               ? 'bg-red-600 text-white'
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           "
         >
-          Неактивные
+          Побеждены
         </button>
       </div>
     </div>
@@ -53,8 +71,8 @@
         :key="boss.id"
         class="card hover:bg-gray-750 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl"
         :class="{
-          'border-l-4 border-green-500': boss.state === 'active',
-          'border-l-4 border-gray-500': boss.state === 'idle',
+          'border-l-4 border-green-500': boss.state === 'available',
+          'border-l-4 border-orange-500': boss.state === 'in_battle',
           'border-l-4 border-red-500': boss.state === 'dead'
         }"
         @click="navigateTo(`/bosses/${boss.id}`)"
@@ -78,17 +96,20 @@
             <span
               class="px-2 py-1 rounded text-xs font-medium"
               :class="{
-                'bg-green-600 text-white': boss.state === 'active',
-                'bg-gray-600 text-white': boss.state === 'idle',
+                'bg-green-600 text-white': boss.state === 'available',
+                'bg-orange-600 text-white': boss.state === 'in_battle',
                 'bg-red-600 text-white': boss.state === 'dead'
               }"
             >
-              {{ getStatusText(boss.state) }}
+              {{ getStatusText(boss) }}
             </span>
           </div>
 
           <!-- HP бар -->
-          <div v-if="boss.state === 'active'" class="mb-3">
+          <div
+            v-if="boss.state === 'available' || boss.state === 'in_battle'"
+            class="mb-3"
+          >
             <div class="flex justify-between text-sm text-gray-400 mb-1">
               <span>HP</span>
               <span>{{ boss.currentHp }}/{{ boss.maxHp }}</span>
@@ -136,15 +157,25 @@ const filteredBosses = computed(() => {
   if (filter.value === 'all') {
     return bosses.value;
   }
-  return bosses.value.filter(boss => boss.state === filter.value);
+  if (filter.value === 'available') {
+    return bosses.value.filter(boss => boss.state === 'available');
+  }
+  if (filter.value === 'in_battle') {
+    return bosses.value.filter(boss => boss.state === 'in_battle');
+  }
+  if (filter.value === 'dead') {
+    return bosses.value.filter(boss => boss.state === 'dead');
+  }
+  return bosses.value;
 });
 
-const getStatusText = state => {
-  switch (state) {
-    case 'active':
-      return 'Активен';
-    case 'idle':
-      return 'Неактивен';
+const getStatusText = boss => {
+  console.log(`🔍 Получение статуса для босса ${boss.name}:`, boss.state);
+  switch (boss.state) {
+    case 'available':
+      return 'Доступен';
+    case 'in_battle':
+      return 'В бою';
     case 'dead':
       return 'Побежден';
     default:
@@ -162,14 +193,40 @@ const loadBosses = async () => {
     const config = useRuntimeConfig();
     const authStore = useAuthStore();
 
+    console.log('🔄 Принудительная перезагрузка боссов...');
+    console.log('🧹 Очищаем кэш...');
+
+    // Очищаем кэш и принудительно обновляем данные
     const response = await $fetch(`${config.public.apiBase}/api/boss`, {
       headers: {
-        Authorization: `Bearer ${authStore.token}`
+        Authorization: `Bearer ${authStore.token}`,
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache'
+      },
+      // Принудительно обновляем данные
+      cache: 'no-cache',
+      // Добавляем timestamp для предотвращения кэширования
+      query: {
+        _t: Date.now()
       }
     });
 
+    console.log('📡 Ответ API боссов:', response);
+
     if (response.ok) {
+      // Принудительно очищаем старые данные
+      bosses.value = [];
+
+      // Устанавливаем новые данные
       bosses.value = response.data.bosses;
+      console.log('👹 Загруженные боссы:', bosses.value);
+
+      // Проверяем состояния каждого босса
+      bosses.value.forEach(boss => {
+        console.log(
+          `   ${boss.name}: state="${boss.state}", HP=${boss.currentHp}/${boss.maxHp}, participants=${boss.participantCount}`
+        );
+      });
     }
   } catch (error) {
     console.error('Ошибка загрузки боссов:', error);
@@ -178,6 +235,12 @@ const loadBosses = async () => {
 
 onMounted(() => {
   loadBosses();
+
+  // Обновляем данные при возвращении на вкладку
+  window.addEventListener('focus', () => {
+    console.log('🔄 Окно получило фокус, обновляем данные...');
+    loadBosses();
+  });
 });
 
 // Middleware для проверки аутентификации

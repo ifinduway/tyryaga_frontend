@@ -2,6 +2,35 @@ import User from '../models/User.js';
 import Boss from '../models/Boss.js';
 import Message from '../models/Message.js';
 import Clan from '../models/Clan.js';
+import UserInventory from '../models/UserInventory.js';
+
+// Функция инициализации боссов при запуске сервера
+const initializeBosses = async () => {
+  try {
+    console.log('🔄 Инициализация боссов...');
+    const deadBosses = await Boss.find({ state: 'dead' });
+
+    if (deadBosses.length > 0) {
+      console.log(
+        `💀 Найдено ${deadBosses.length} мертвых боссов, возрождаем...`
+      );
+
+      for (const boss of deadBosses) {
+        await Boss.findByIdAndUpdate(boss._id, {
+          state: 'available',
+          currentHp: boss.maxHp,
+          participants: [],
+          defeatedAt: null
+        });
+        console.log(`✅ Босс ${boss.name} возрожден!`);
+      }
+    } else {
+      console.log('✅ Все боссы живы');
+    }
+  } catch (error) {
+    console.error('❌ Ошибка инициализации боссов:', error);
+  }
+};
 
 export const setupSocketHandlers = io => {
   // Middleware для отслеживания подключений
@@ -131,82 +160,10 @@ export const setupSocketHandlers = io => {
       );
     });
 
-    // Присоединение к бою с боссом
-    socket.on('joinBoss', async data => {
-      console.log('👹 Получено событие joinBoss:', data);
-      console.log('👤 Пользователь:', socket.user?.nickname, socket.userId);
-
-      try {
-        const { bossId } = data;
-
-        const boss = await Boss.findById(bossId);
-        if (!boss) {
-          console.log('❌ Босс не найден:', bossId);
-          return socket.emit('error', { message: 'Босс не найден' });
-        }
-
-        if (!boss.isAvailable()) {
-          console.log('❌ Босс недоступен:', boss.state);
-          return socket.emit('error', { message: 'Босс недоступен для боя' });
-        }
-
-        const roomName = `boss_${bossId}`;
-        socket.join(roomName);
-        console.log('✅ Пользователь присоединился к комнате:', roomName);
-
-        // Заполняем участников ником и уровнем
-        try {
-          await boss.populate('participants.userId', 'nickname level');
-        } catch (e) {
-          console.error('Ошибка populate участников босса:', e);
-        }
-
-        // Отправляем текущее состояние босса
-        socket.emit('bossState', {
-          bossId: boss._id,
-          name: boss.name,
-          maxHp: boss.maxHp,
-          currentHp: boss.currentHp,
-          level: boss.level,
-          state: boss.state,
-          participants: (boss.participants || []).map(p => ({
-            userId:
-              p.userId?._id?.toString?.() || p.userId?.toString?.() || p.userId,
-            nickname: p.userId?.nickname || 'Игрок',
-            level: p.userId?.level || 1,
-            damageDealt: p.damageDealt || 0,
-            joinedAt: p.joinedAt || null
-          }))
-        });
-        console.log('📡 Отправлено состояние босса');
-
-        // Уведомляем других участников
-        socket.to(roomName).emit('playerJoined', {
-          userId: socket.userId,
-          nickname: socket.user.nickname,
-          level: socket.user.level
-        });
-        console.log('📢 Уведомлены другие участники');
-
-        console.log(
-          `Пользователь ${socket.user?.nickname} присоединился к бою с боссом ${boss.name}`
-        );
-      } catch (error) {
-        console.error('❌ Ошибка присоединения к бою:', error);
-        socket.emit('error', { message: 'Ошибка присоединения к бою' });
-      }
-    });
-
     // Нанесение урона боссу
     socket.on('dealDamage', async data => {
       console.log('🔥 Получено событие dealDamage:', data);
       console.log('👤 Пользователь:', socket.user?.nickname, socket.userId);
-      console.log(
-        '📊 Тип урона:',
-        typeof data.damage,
-        'Значение:',
-        data.damage
-      );
 
       try {
         const { bossId, damage } = data;
@@ -217,60 +174,118 @@ export const setupSocketHandlers = io => {
         }
 
         const user = await User.findById(socket.userId);
-        console.log(
-          '👤 Найден пользователь:',
-          user?.nickname,
-          'Энергия:',
-          user?.energy
-        );
+        if (!user) {
+          console.log('❌ Пользователь не найден');
+          return socket.emit('error', { message: 'Пользователь не найден' });
+        }
+
+        // Проверяем, не атакует ли пользователь уже другого босса
+        if (user.currentBossId && user.currentBossId.toString() !== bossId) {
+          console.log(
+            '❌ Пользователь уже атакует другого босса:',
+            user.currentBossId
+          );
+          return socket.emit('error', {
+            message: 'Вы уже атакуете другого босса'
+          });
+        }
 
         const boss = await Boss.findById(bossId);
-        console.log('👹 Найден босс:', boss?.name, 'Состояние:', boss?.state);
-
         if (!boss || !boss.isAvailable()) {
           console.log('❌ Босс недоступен');
           return socket.emit('error', { message: 'Босс недоступен' });
         }
 
-        // Рассчитываем реальный урон с учетом характеристик игрока
-        // Базовый урон: damage
-        const dmgMult = Math.max(0.1, user.damageMultiplier || 1);
-        const critMult = Math.max(1, user.critDamageMultiplier || 2);
-        const critChance = Math.min(100, Math.max(0, user.critChance || 0));
+        // Устанавливаем текущего босса для пользователя
+        if (!user.currentBossId) {
+          await User.findByIdAndUpdate(socket.userId, {
+            currentBossId: bossId
+          });
+        }
 
-        let isCrit = Math.random() * 100 < critChance;
-        const realDamage = Math.floor(
-          damage * dmgMult * (isCrit ? critMult : 1)
+        // Получаем экипированное оружие и броню
+        const inventory = await UserInventory.findOne({
+          userId: socket.userId
+        }).populate('items.itemId');
+
+        let weaponDamageBonus = 0;
+        let critChanceBonus = 0;
+        let critDamageMultiplier = user.critDamageMultiplier || 2;
+
+        if (inventory) {
+          const equippedWeapon = inventory.items.find(
+            item => item.equipped && item.slot === 'weapon' && item.itemId
+          );
+          const equippedItems = inventory.items.filter(
+            item =>
+              item.equipped &&
+              item.itemId &&
+              ['helmet', 'boots', 'body', 'gloves', 'ring'].includes(item.slot)
+          );
+
+          // Обрабатываем оружие
+          if (equippedWeapon && equippedWeapon.itemId) {
+            weaponDamageBonus = equippedWeapon.itemId.stats?.damage || 0;
+
+            // Проверяем эффекты оружия
+            if (equippedWeapon.itemId.effects) {
+              for (const effect of equippedWeapon.itemId.effects) {
+                if (effect.type === 'damage_boost' && effect.duration === 0) {
+                  weaponDamageBonus = Math.max(weaponDamageBonus, effect.value);
+                }
+              }
+            }
+          }
+
+          // Обрабатываем экипированные предметы
+          for (const item of equippedItems) {
+            if (item.itemId.stats?.damage) {
+              weaponDamageBonus += item.itemId.stats.damage;
+            }
+
+            if (item.itemId.effects) {
+              for (const effect of item.itemId.effects) {
+                if (effect.type === 'luck_boost' && effect.duration === 0) {
+                  critChanceBonus += effect.value;
+                } else if (
+                  effect.type === 'damage_boost' &&
+                  effect.duration === 0
+                ) {
+                  critDamageMultiplier = Math.max(
+                    critDamageMultiplier,
+                    effect.value
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        // Рассчитываем реальный урон
+        const baseDamageWithWeapon = damage + weaponDamageBonus;
+        const dmgMult = Math.max(0.1, user.damageMultiplier || 1);
+        const critMult = Math.max(1, critDamageMultiplier);
+        const critChance = Math.min(
+          100,
+          Math.max(0, (user.critChance || 0) + critChanceBonus)
         );
-        console.log(
-          '⚔️ Реальный урон:',
-          realDamage,
-          '(базовый:',
-          damage,
-          ', множитель урона:',
-          dmgMult,
-          ', крит?:',
-          isCrit,
-          ', крит. множитель:',
-          isCrit ? critMult : 1,
-          ')'
+
+        const isCrit = Math.random() * 100 < critChance;
+        const realDamage = Math.floor(
+          baseDamageWithWeapon * dmgMult * (isCrit ? critMult : 1)
         );
 
         // Наносим урон боссу
         const damageDealt = boss.takeDamage(realDamage, socket.userId);
-        console.log('💥 Урон нанесен боссу:', damageDealt);
-
         if (damageDealt) {
           await boss.save();
 
           const roomName = `boss_${bossId}`;
-          console.log('📡 Отправляем обновление в комнату:', roomName);
 
-          // Проверяем, кто в комнате
-          const socketsInRoom = await io.in(roomName).fetchSockets();
-          console.log('👥 Количество сокетов в комнате:', socketsInRoom.length);
+          // Автоматически присоединяем пользователя к комнате босса
+          socket.join(roomName);
 
-          // Отправляем обновление всем участникам
+          // Заполняем участников ником и уровнем для отправки
           let participantsPayload = [];
           try {
             await boss.populate('participants.userId', 'nickname level');
@@ -292,10 +307,16 @@ export const setupSocketHandlers = io => {
             bossId: boss._id,
             currentHp: boss.currentHp,
             maxHp: boss.maxHp,
+            state: boss.state,
             damageDealt: realDamage,
             realDamage: realDamage,
             damage: damage,
+            weaponDamageBonus: weaponDamageBonus,
+            baseDamageWithWeapon: baseDamageWithWeapon,
             dmgMult: dmgMult,
+            critChance: critChance,
+            critChanceBonus: critChanceBonus,
+            critDamageMultiplier: critDamageMultiplier,
             dealtBy: {
               userId: socket.userId,
               nickname: socket.user.nickname
@@ -305,39 +326,67 @@ export const setupSocketHandlers = io => {
             participants: participantsPayload
           };
 
-          console.log('📦 Данные для отправки:', updateData);
-
           io.to(roomName).emit('bossUpdate', updateData);
 
-          console.log('✅ Обновление отправлено');
-
           // Если босс убит
-          if (boss.state === 'dead') {
+          if (boss.currentHp === 0) {
             console.log('💀 Босс убит!');
-            const rewards = await distributeRewards(boss);
+
+            // Устанавливаем состояние "мертв"
+            boss.state = 'dead';
+            await boss.save();
+
+            // Обновляем статистику убийств для пользователя
+            await User.findByIdAndUpdate(socket.userId, {
+              $inc: { [`bossKills.${boss._id}`]: 1 },
+              $unset: { currentBossId: 1 } // Снимаем текущего босса
+            });
 
             io.to(roomName).emit('bossDefeated', {
               bossId: boss._id,
               bossName: boss.name,
-              rewards: rewards,
-              participants: boss.participants.map(p => ({
-                userId: p.userId,
-                damageDealt: p.damageDealt
-              }))
+              dealtBy: {
+                userId: socket.userId,
+                nickname: socket.user.nickname
+              },
+              participants: participantsPayload
             });
 
             // Создаем системное сообщение
             await Message.createSystemMessage(
               'global',
               null,
-              `Босс ${boss.name} был побежден! Участники получили награды.`
+              `Босс ${boss.name} был побежден игроком ${socket.user.nickname}!`
             );
 
             // Уведомляем всех в глобальном чате
             io.to('global').emit('bossDefeatedGlobal', {
               bossName: boss.name,
-              participantCount: boss.participants.length
+              dealtBy: socket.user.nickname
             });
+
+            // Сразу возрождаем босса
+            await Boss.findByIdAndUpdate(boss._id, {
+              currentHp: boss.maxHp,
+              participants: [],
+              defeatedAt: null,
+              state: 'available'
+            });
+            console.log(`🔄 Босс ${boss.name} возрожден! HP: ${boss.maxHp}`);
+
+            // Отправляем обновление о возрожденном боссе
+            const respawnUpdate = {
+              bossId: boss._id,
+              currentHp: boss.maxHp,
+              maxHp: boss.maxHp,
+              participants: [],
+              state: 'available'
+            };
+            console.log(
+              '📡 Отправляем обновление о возрождении:',
+              respawnUpdate
+            );
+            io.to(roomName).emit('bossUpdate', respawnUpdate);
           }
         }
       } catch (error) {
@@ -357,7 +406,8 @@ export const setupSocketHandlers = io => {
         if (socket.userId) {
           await User.findByIdAndUpdate(socket.userId, {
             online: false,
-            lastSeen: new Date()
+            lastSeen: new Date(),
+            $unset: { currentBossId: 1 } // Снимаем текущего босса при отключении
           });
         }
       } catch (error) {
@@ -412,4 +462,7 @@ export const setupSocketHandlers = io => {
       return [];
     }
   };
+
+  // Инициализируем боссов при запуске сервера
+  initializeBosses();
 };

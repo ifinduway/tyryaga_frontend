@@ -96,6 +96,16 @@ const userSchema = new mongoose.Schema(
     energyLastUpdate: {
       type: Date,
       default: Date.now
+    },
+    bossKills: {
+      type: Map,
+      of: Number,
+      default: new Map()
+    },
+    currentBossId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Boss',
+      default: null
     }
   },
   {

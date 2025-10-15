@@ -72,6 +72,73 @@
       </div>
     </div>
 
+    <!-- Экипировка и бонусы -->
+    <div class="card">
+      <h3 class="text-xl font-bold text-white mb-4">⚔️ Экипировка</h3>
+
+      <div
+        v-if="equippedStats"
+        class="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4"
+      >
+        <div class="text-center p-3 bg-gray-700 rounded-lg">
+          <div class="text-2xl font-bold text-red-400">
+            +{{ equippedStats.damage }}
+          </div>
+          <div class="text-sm text-gray-400">Урон</div>
+        </div>
+      </div>
+
+      <div v-else class="text-center text-gray-400 py-4">
+        <p>Нет экипированных предметов</p>
+      </div>
+
+      <!-- Слоты экипировки -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">⛑️ Шлем</div>
+          <div v-if="equippedSlots.helmet" class="text-white font-bold">
+            {{ equippedSlots.helmet.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">👢 Ботинки</div>
+          <div v-if="equippedSlots.boots" class="text-white font-bold">
+            {{ equippedSlots.boots.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">👕 Тело</div>
+          <div v-if="equippedSlots.body" class="text-white font-bold">
+            {{ equippedSlots.body.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">🧤 Перчатки</div>
+          <div v-if="equippedSlots.gloves" class="text-white font-bold">
+            {{ equippedSlots.gloves.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">⚔️ Оружие</div>
+          <div v-if="equippedSlots.weapon" class="text-white font-bold">
+            {{ equippedSlots.weapon.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+        <div class="bg-gray-700 rounded-lg p-3">
+          <div class="text-sm text-gray-400 mb-2">💍 Кольцо</div>
+          <div v-if="equippedSlots.ring" class="text-white font-bold">
+            {{ equippedSlots.ring.name }}
+          </div>
+          <div v-else class="text-gray-500 text-sm italic">Не экипировано</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Инвентарь -->
     <div class="card">
       <h3 class="text-xl font-bold text-white mb-4">🎒 Инвентарь</h3>
@@ -255,6 +322,15 @@ const user = computed(() => authStore.user);
 const clan = ref(null);
 const inventory = ref(null);
 const invLoading = ref(false);
+const equippedStats = ref(null);
+const equippedSlots = ref({
+  helmet: null,
+  boots: null,
+  body: null,
+  gloves: null,
+  weapon: null,
+  ring: null
+});
 
 const formatMoney = amount => {
   return new Intl.NumberFormat('ru-RU').format(amount);
@@ -286,8 +362,12 @@ const getDaysPlayed = () => {
 
 const getItemIcon = type => {
   const icons = {
+    helmet: '⛑️',
+    boots: '👢',
+    body: '👕',
+    gloves: '🧤',
     weapon: '⚔️',
-    armor: '🛡️',
+    ring: '💍',
     consumable: '💊'
   };
   return icons[type] || '📦';
@@ -353,9 +433,42 @@ const loadClan = async () => {
   }
 };
 
+// Загружаем экипированные предметы
+const loadEquippedItems = async () => {
+  try {
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/inventory/me/equipped`,
+      {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      equippedStats.value = response.data.stats;
+      const equipped = response.data.equipped;
+
+      // Находим экипированные предметы по слотам
+      equippedSlots.value = {
+        helmet: equipped.find(item => item.slot === 'helmet')?.itemId || null,
+        boots: equipped.find(item => item.slot === 'boots')?.itemId || null,
+        body: equipped.find(item => item.slot === 'body')?.itemId || null,
+        gloves: equipped.find(item => item.slot === 'gloves')?.itemId || null,
+        weapon: equipped.find(item => item.slot === 'weapon')?.itemId || null,
+        ring: equipped.find(item => item.slot === 'ring')?.itemId || null
+      };
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки экипировки:', error);
+  }
+};
+
 onMounted(() => {
   loadInventory();
   loadClan();
+  loadEquippedItems();
 });
 
 // Middleware для проверки аутентификации
@@ -393,7 +506,14 @@ const equipItem = async (itemId, type) => {
   if (invLoading.value) return;
   invLoading.value = true;
   try {
-    const slotByType = { weapon: 'weapon', armor: 'armor' };
+    const slotByType = {
+      helmet: 'helmet',
+      boots: 'boots',
+      body: 'body',
+      gloves: 'gloves',
+      weapon: 'weapon',
+      ring: 'ring'
+    };
     const slot = slotByType[type] || null;
     if (!slot) return;
     const config = useRuntimeConfig();
@@ -409,7 +529,7 @@ const equipItem = async (itemId, type) => {
       }
     );
     if (response.ok) {
-      await loadInventory();
+      await Promise.all([loadInventory(), loadEquippedItems()]);
     } else {
       console.error(response.error);
     }
@@ -433,7 +553,7 @@ const unequipItem = async itemId => {
       }
     );
     if (response.ok) {
-      await loadInventory();
+      await Promise.all([loadInventory(), loadEquippedItems()]);
     } else {
       console.error(response.error);
     }

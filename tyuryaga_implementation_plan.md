@@ -161,6 +161,8 @@ README.md
   damageDealt: number,         // = realDamage
   realDamage: number,          // точный нанесённый урон
   damage: number,              // базовый урон из клиента (10 или 20)
+  weaponDamageBonus: number,   // бонус урона от экипированного оружия
+  baseDamageWithWeapon: number, // damage + weaponDamageBonus
   dmgMult: number,             // множитель урона игрока
   dealtBy: { userId, nickname },
   crit: boolean,               // был ли крит
@@ -225,10 +227,13 @@ socket.on("dealDamage", async ({ bossId, damage }) => {
   - «Сильный удар (20)» → отправляет `dealDamage` с `damage = 20`.
 - Пересмотрена серверная формула урона:
   - УБРАН бонус за уровень;
-  - Урон считается как: `realDamage = baseDamage × damageMultiplier × (isCrit ? critDamageMultiplier : 1)`;
+  - Урон считается как: `realDamage = (baseDamage + weaponDamageBonus) × damageMultiplier × (isCrit ? critDamageMultiplier : 1)`;
+  - Бонус от экипированного оружия добавляется к базовому урону;
   - Шанс крита: `critChance` (в процентах).
-- Событие `bossUpdate` расширено полями: `realDamage`, `damage`, `dmgMult`, `crit`, `critEffectiveMult`, а также массивом `participants` с никнеймами/уровнями.
-- Лог боя на клиенте показывает точный урон и разложение: `base`, `dmgMult`, `critMult`.
+- Событие `bossUpdate` расширено полями: `realDamage`, `damage`, `weaponDamageBonus`, `baseDamageWithWeapon`, `dmgMult`, `crit`, `critEffectiveMult`, а также массивом `participants` с никнеймами/уровнями.
+- Лог боя на клиенте показывает точный урон и разложение: `base`, `weapon bonus`, `dmgMult`, `critMult`.
+- UI страницы босса отображает информацию об экипированном оружии и его влиянии на урон.
+- Кнопки атаки показывают итоговый базовый урон с учетом бонуса от оружия.
 
 ### Характеристики игрока
 
@@ -450,5 +455,12 @@ export function emit(event, data) {
   - Токен сохраняется на 30 дней
   - Автоматическая авторизация при перезагрузке страницы
   - Безопасные настройки cookie (sameSite, secure в production)
+- **Влияние экипировки на урон:**
+  - Экипированное оружие добавляет бонус к базовому урону
+  - Формула: `realDamage = (baseDamage + weaponDamageBonus) × damageMultiplier × critMultiplier`
+  - UI страницы босса показывает экипированное оружие и его бонус
+  - Кнопки атаки отображают итоговый базовый урон с учетом экипировки
+  - Лог боя детально показывает расчет урона с разбивкой по компонентам
+  - Автоматическое обновление информации об экипировке при возврате на страницу
 
 ---

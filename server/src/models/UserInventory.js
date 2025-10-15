@@ -28,8 +28,12 @@ const userInventorySchema = new mongoose.Schema(
         slot: {
           type: String,
           enum: [
-            'weapon',
-            'armor',
+            'helmet', // Шлем
+            'boots', // Ботинки
+            'body', // Тело
+            'gloves', // Перчатки
+            'weapon', // Оружие
+            'ring', // Кольцо
             'consumable1',
             'consumable2',
             'consumable3',
