@@ -13,6 +13,7 @@ import userRoutes from './routes/user.js';
 import bossRoutes from './routes/boss.js';
 import clanRoutes from './routes/clan.js';
 import itemRoutes from './routes/item.js';
+import workRoutes from './routes/work.js';
 
 // Импорт middleware
 import { authenticateToken } from './middleware/auth.js';
@@ -75,6 +76,7 @@ app.use('/api/user', authenticateToken, userRoutes);
 app.use('/api/boss', authenticateToken, bossRoutes);
 app.use('/api/clan', authenticateToken, clanRoutes);
 app.use('/api/item', authenticateToken, itemRoutes);
+app.use('/api/work', authenticateToken, workRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-8">
+    <!-- Навигация -->
+    <PageNavigation />
+
     <!-- Приветствие -->
     <div class="text-center animate-fade-in">
       <h1
@@ -34,7 +37,7 @@
     </div>
 
     <!-- Быстрые действия -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
       <!-- Боссы -->
       <div
         class="card hover:bg-gray-750 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-l-4 border-red-500"
@@ -63,6 +66,21 @@
           <p class="text-gray-400 text-sm">
             Создайте или присоединитесь к клану
           </p>
+        </div>
+      </div>
+
+      <!-- Работа -->
+      <div
+        class="card hover:bg-gray-750 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-l-4 border-blue-500"
+        @click="navigateTo('/work')"
+      >
+        <div class="text-center">
+          <div class="text-5xl mb-3 animate-pulse">💼</div>
+          <h3 class="text-xl font-bold text-blue-400 mb-2">Работа</h3>
+          <p class="text-gray-400 text-sm mb-3">Зарабатывайте деньги и опыт</p>
+          <div class="text-xs text-gray-500">
+            {{ user?.energy || 0 }} ⚡ энергии
+          </div>
         </div>
       </div>
 

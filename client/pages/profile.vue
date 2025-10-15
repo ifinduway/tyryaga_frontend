@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-6">
+    <!-- Навигация -->
+    <PageNavigation :breadcrumbs="[{ label: 'Профиль' }]" />
+
     <div class="text-center">
       <h1 class="text-3xl font-bold text-white mb-2">👤 Профиль</h1>
       <p class="text-gray-400">Ваши характеристики и статистика</p>
@@ -74,23 +77,43 @@
       <h3 class="text-xl font-bold text-white mb-4">🎒 Инвентарь</h3>
 
       <div
-        v-if="user?.items?.length === 0"
+        v-if="!inventory || inventory.items.length === 0"
         class="text-center text-gray-400 py-8"
       >
         <div class="text-4xl mb-2">🎒</div>
         <p>Инвентарь пуст</p>
+        <p class="text-sm mt-2">Купите предметы в магазине</p>
       </div>
 
       <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
-          v-for="item in user?.items"
-          :key="item.itemId"
-          class="bg-gray-700 rounded-lg p-3 text-center"
+          v-for="item in inventory.items"
+          :key="item._id"
+          class="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors cursor-pointer"
+          :class="{ 'ring-2 ring-yellow-500': item.equipped }"
         >
-          <div class="text-2xl mb-2">📦</div>
-          <div class="text-sm text-white">Предмет</div>
-          <div class="text-xs text-gray-400">x{{ item.qty }}</div>
+          <div class="text-2xl mb-2">
+            {{ getItemIcon(item.itemId.type) }}
+          </div>
+          <div class="text-sm text-white font-bold">{{ item.itemId.name }}</div>
+          <div class="text-xs text-gray-400 mt-1">
+            {{ getRarityText(item.itemId.rarity) }}
+          </div>
+          <div class="text-xs text-gray-400">
+            Ур.{{ item.itemId.level }} • x{{ item.quantity }}
+          </div>
+          <div v-if="item.equipped" class="text-xs text-yellow-400 mt-2">
+            🔧 Экипировано
+          </div>
         </div>
+      </div>
+
+      <div
+        v-if="inventory && inventory.items.length > 0"
+        class="mt-4 text-sm text-gray-400 text-center"
+      >
+        Использовано {{ inventory.items.length }} /
+        {{ inventory.maxSlots }} слотов
       </div>
     </div>
 
@@ -151,7 +174,7 @@
         </div>
         <div class="text-center">
           <div class="text-2xl font-bold text-green-400">
-            {{ user?.online ? "Онлайн" : "Оффлайн" }}
+            {{ user?.online ? 'Онлайн' : 'Оффлайн' }}
           </div>
           <div class="text-sm text-gray-400">Статус</div>
         </div>
@@ -191,21 +214,22 @@
 </template>
 
 <script setup>
-import { useAuthStore } from "~/stores/auth";
+import { useAuthStore } from '~/stores/auth';
 
 const { $pinia } = useNuxtApp();
 const authStore = useAuthStore($pinia);
 const user = computed(() => authStore.user);
 
 const clan = ref(null);
+const inventory = ref(null);
 
-const formatMoney = (amount) => {
-  return new Intl.NumberFormat("ru-RU").format(amount);
+const formatMoney = amount => {
+  return new Intl.NumberFormat('ru-RU').format(amount);
 };
 
-const formatDate = (date) => {
-  if (!date) return "Неизвестно";
-  return new Date(date).toLocaleDateString("ru-RU");
+const formatDate = date => {
+  if (!date) return 'Неизвестно';
+  return new Date(date).toLocaleDateString('ru-RU');
 };
 
 const getExpPercentage = () => {
@@ -227,14 +251,56 @@ const getDaysPlayed = () => {
   );
 };
 
+const getItemIcon = type => {
+  const icons = {
+    weapon: '⚔️',
+    armor: '🛡️',
+    consumable: '💊'
+  };
+  return icons[type] || '📦';
+};
+
+const getRarityText = rarity => {
+  const rarities = {
+    common: '⚪ Обычный',
+    uncommon: '🟢 Необычный',
+    rare: '🔵 Редкий',
+    epic: '🟣 Эпический',
+    legendary: '🟠 Легендарный'
+  };
+  return rarities[rarity] || rarity;
+};
+
 const editProfile = () => {
   // TODO: Реализовать редактирование профиля
-  console.log("Редактирование профиля");
+  console.log('Редактирование профиля');
 };
 
 const logout = () => {
   authStore.logout();
-  navigateTo("/login");
+  navigateTo('/login');
+};
+
+// Загружаем инвентарь
+const loadInventory = async () => {
+  try {
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/inventory/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      inventory.value = response.data.inventory;
+      console.log('Инвентарь загружен:', inventory.value);
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки инвентаря:', error);
+  }
 };
 
 // Загружаем информацию о клане
@@ -250,16 +316,17 @@ const loadClan = async () => {
       clan.value = response.data.clan;
     }
   } catch (error) {
-    console.error("Ошибка загрузки клана:", error);
+    console.error('Ошибка загрузки клана:', error);
   }
 };
 
 onMounted(() => {
+  loadInventory();
   loadClan();
 });
 
 // Middleware для проверки аутентификации
 definePageMeta({
-  middleware: "auth",
+  middleware: 'auth'
 });
 </script>

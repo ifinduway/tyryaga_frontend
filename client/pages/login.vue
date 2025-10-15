@@ -166,30 +166,30 @@
 </template>
 
 <script setup>
-import { useAuthStore } from "~/stores/auth";
+import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
-const activeTab = ref("login");
+const activeTab = ref('login');
 const isLoading = ref(false);
-const error = ref("");
+const error = ref('');
 
 const loginForm = ref({
-  email: "",
-  password: "",
+  email: '',
+  password: ''
 });
 
 const registerForm = ref({
-  email: "",
-  nickname: "",
-  password: "",
-  confirmPassword: "",
+  email: '',
+  nickname: '',
+  password: '',
+  confirmPassword: ''
 });
 
 const handleLogin = async () => {
   isLoading.value = true;
-  error.value = "";
+  error.value = '';
 
   const result = await authStore.login(
     loginForm.value.email,
@@ -197,7 +197,7 @@ const handleLogin = async () => {
   );
 
   if (result.success) {
-    await router.push("/");
+    await router.push('/');
   } else {
     error.value = result.error;
   }
@@ -207,12 +207,12 @@ const handleLogin = async () => {
 
 const handleRegister = async () => {
   if (registerForm.value.password !== registerForm.value.confirmPassword) {
-    error.value = "Пароли не совпадают";
+    error.value = 'Пароли не совпадают';
     return;
   }
 
   isLoading.value = true;
-  error.value = "";
+  error.value = '';
 
   const result = await authStore.register(
     registerForm.value.email,
@@ -221,7 +221,7 @@ const handleRegister = async () => {
   );
 
   if (result.success) {
-    await router.push("/");
+    await router.push('/');
   } else {
     error.value = result.error;
   }
@@ -230,9 +230,15 @@ const handleRegister = async () => {
 };
 
 // Редирект если уже авторизован
-onMounted(() => {
+onMounted(async () => {
+  // Проверяем, есть ли токен в cookie
+  if (authStore.token && !authStore.user) {
+    await authStore.checkAuth();
+  }
+
+  // Если пользователь авторизован, перенаправляем на главную
   if (authStore.isAuthenticated) {
-    router.push("/");
+    router.push('/');
   }
 });
 </script>

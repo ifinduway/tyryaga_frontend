@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema(
   {
@@ -7,11 +7,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true,
+      trim: true
     },
     passwordHash: {
       type: String,
-      required: true,
+      required: true
     },
     nickname: {
       type: String,
@@ -19,68 +19,68 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       minlength: 3,
-      maxlength: 20,
+      maxlength: 20
     },
     level: {
       type: Number,
       default: 1,
       min: 1,
-      max: 100,
+      max: 100
     },
     exp: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
     money: {
       type: Number,
       default: 1000,
-      min: 0,
+      min: 0
     },
     respect: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
     energy: {
       type: Number,
       default: 100,
       min: 0,
-      max: 100,
+      max: 1000000
     },
     items: [
       {
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Item",
+          ref: 'Item'
         },
         qty: {
           type: Number,
           default: 1,
-          min: 1,
-        },
-      },
+          min: 1
+        }
+      }
     ],
     clanId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Clan",
-      default: null,
+      ref: 'Clan',
+      default: null
     },
     online: {
       type: Boolean,
-      default: false,
+      default: false
     },
     lastSeen: {
       type: Date,
-      default: Date.now,
+      default: Date.now
     },
     energyLastUpdate: {
       type: Date,
-      default: Date.now,
-    },
+      default: Date.now
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
@@ -91,7 +91,7 @@ userSchema.index({ clanId: 1 });
 userSchema.index({ online: 1 });
 
 // Виртуальное поле для следующего уровня
-userSchema.virtual("expToNextLevel").get(function () {
+userSchema.virtual('expToNextLevel').get(function () {
   return this.level * 1000 - this.exp;
 });
 
@@ -121,4 +121,4 @@ userSchema.methods.restoreEnergy = function () {
   }
 };
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model('User', userSchema);

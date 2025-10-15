@@ -1,32 +1,37 @@
-import { defineStore } from "pinia";
+import { useCookie } from 'nuxt/app';
+import { defineStore } from 'pinia';
 
-export const useAuthStore = defineStore("auth", () => {
+export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
-  const token = ref(null);
-  const isAuthenticated = computed(() => !!token.value && !!user.value);
+  const isAuthenticated = computed(() => !!tokenCookie.value && !!user.value);
 
   // Получаем конфигурацию API
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
 
-  // Сохранение токена в localStorage
-  const saveToken = (newToken) => {
-    token.value = newToken;
-    if (process.client) {
-      localStorage.setItem("auth_token", newToken);
-    }
+  // Используем cookie для хранения токена
+  const tokenCookie = useCookie('auth_token', {
+    maxAge: 60 * 60 * 24 * 30, // 30 дней
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/'
+  });
+
+  // Computed для получения значения токена
+  const token = computed(() => tokenCookie.value);
+
+  // Сохранение токена в cookie
+  const saveToken = newToken => {
+    tokenCookie.value = newToken;
   };
 
   // Удаление токена
   const clearToken = () => {
-    token.value = null;
-    if (process.client) {
-      localStorage.removeItem("auth_token");
-    }
+    tokenCookie.value = null;
   };
 
   // Установка пользователя
-  const setUser = (userData) => {
+  const setUser = userData => {
     user.value = userData;
   };
 
@@ -43,26 +48,23 @@ export const useAuthStore = defineStore("auth", () => {
 
   // Проверка аутентификации при загрузке
   const checkAuth = async () => {
-    if (process.client) {
-      const savedToken = localStorage.getItem("auth_token");
-      if (savedToken) {
-        token.value = savedToken;
-        try {
-          const response = await $fetch(`${apiBase}/api/auth/verify`, {
-            headers: {
-              Authorization: `Bearer ${savedToken}`,
-            },
-          });
-
-          if (response.ok) {
-            setUser(response.data.user);
-          } else {
-            logout();
+    const savedToken = tokenCookie.value;
+    if (savedToken) {
+      try {
+        const response = await $fetch(`${apiBase}/api/auth/verify`, {
+          headers: {
+            Authorization: `Bearer ${savedToken}`
           }
-        } catch (error) {
-          console.error("Ошибка проверки токена:", error);
+        });
+
+        if (response.ok) {
+          setUser(response.data.user);
+        } else {
           logout();
         }
+      } catch (error) {
+        console.error('Ошибка проверки токена:', error);
+        logout();
       }
     }
   };
@@ -71,11 +73,11 @@ export const useAuthStore = defineStore("auth", () => {
   const login = async (email, password) => {
     try {
       const response = await $fetch(`${apiBase}/api/auth/login`, {
-        method: "POST",
+        method: 'POST',
         body: {
           email,
-          password,
-        },
+          password
+        }
       });
 
       if (response.ok) {
@@ -86,8 +88,8 @@ export const useAuthStore = defineStore("auth", () => {
         return { success: false, error: response.error };
       }
     } catch (error) {
-      console.error("Ошибка входа:", error);
-      return { success: false, error: "Ошибка подключения к серверу" };
+      console.error('Ошибка входа:', error);
+      return { success: false, error: 'Ошибка подключения к серверу' };
     }
   };
 
@@ -95,12 +97,12 @@ export const useAuthStore = defineStore("auth", () => {
   const register = async (email, password, nickname) => {
     try {
       const response = await $fetch(`${apiBase}/api/auth/register`, {
-        method: "POST",
+        method: 'POST',
         body: {
           email,
           password,
-          nickname,
-        },
+          nickname
+        }
       });
 
       if (response.ok) {
@@ -111,20 +113,20 @@ export const useAuthStore = defineStore("auth", () => {
         return { success: false, error: response.error };
       }
     } catch (error) {
-      console.error("Ошибка регистрации:", error);
-      return { success: false, error: "Ошибка подключения к серверу" };
+      console.error('Ошибка регистрации:', error);
+      return { success: false, error: 'Ошибка подключения к серверу' };
     }
   };
 
   return {
     user: readonly(user),
-    token: readonly(token),
+    token,
     isAuthenticated,
     login,
     register,
     logout,
     checkAuth,
     setUser,
-    clearUser,
+    clearUser
   };
 });

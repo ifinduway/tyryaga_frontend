@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-6">
+    <!-- Навигация -->
+    <PageNavigation :breadcrumbs="[{ label: 'Кланы' }]" />
+
     <div class="text-center">
       <h1 class="text-3xl font-bold text-white mb-2">🏴 Братва</h1>
       <p class="text-gray-400">Создайте или присоединитесь к клану</p>
@@ -12,7 +15,7 @@
           <h2 class="text-xl font-bold text-white mb-2">Ваш клан</h2>
           <p class="text-gray-400">
             {{
-              user?.clanId ? "Вы состоите в клане" : "Вы не состоите в клане"
+              user?.clanId ? 'Вы состоите в клане' : 'Вы не состоите в клане'
             }}
           </p>
         </div>
@@ -90,11 +93,11 @@
               class="btn-primary text-sm px-3 py-1"
               :class="{
                 'opacity-50 cursor-not-allowed':
-                  clan.memberCount >= clan.maxMembers,
+                  clan.memberCount >= clan.maxMembers
               }"
             >
               {{
-                clan.memberCount >= clan.maxMembers ? "Клан полон" : "Вступить"
+                clan.memberCount >= clan.maxMembers ? 'Клан полон' : 'Вступить'
               }}
             </button>
           </div>
@@ -191,32 +194,32 @@
 </template>
 
 <script setup>
-import { useAuthStore } from "~/stores/auth";
+import { useAuthStore } from '~/stores/auth';
 
 const { $pinia } = useNuxtApp();
 const authStore = useAuthStore($pinia);
 const user = computed(() => authStore.user);
 
 const clans = ref([]);
-const searchQuery = ref("");
+const searchQuery = ref('');
 const showCreateModal = ref(false);
 const isLoading = ref(false);
-const error = ref("");
+const error = ref('');
 
 const pagination = ref({
   page: 1,
   limit: 20,
   total: 0,
-  pages: 0,
+  pages: 0
 });
 
 const createForm = ref({
-  name: "",
-  description: "",
+  name: '',
+  description: ''
 });
 
-const formatMoney = (amount) => {
-  return new Intl.NumberFormat("ru-RU").format(amount);
+const formatMoney = amount => {
+  return new Intl.NumberFormat('ru-RU').format(amount);
 };
 
 // Загрузка списка кланов
@@ -224,7 +227,7 @@ const loadClans = async (page = 1) => {
   try {
     const params = {
       page,
-      limit: pagination.value.limit,
+      limit: pagination.value.limit
     };
 
     if (searchQuery.value) {
@@ -233,7 +236,7 @@ const loadClans = async (page = 1) => {
 
     const config = useRuntimeConfig();
     const response = await $fetch(`${config.public.apiBase}/api/clans`, {
-      query: params,
+      query: params
     });
 
     if (response.ok) {
@@ -241,7 +244,7 @@ const loadClans = async (page = 1) => {
       pagination.value = response.data.pagination;
     }
   } catch (error) {
-    console.error("Ошибка загрузки кланов:", error);
+    console.error('Ошибка загрузки кланов:', error);
   }
 };
 
@@ -255,42 +258,42 @@ const createClan = async () => {
   if (!createForm.value.name) return;
 
   isLoading.value = true;
-  error.value = "";
+  error.value = '';
 
   try {
     const config = useRuntimeConfig();
     const response = await $fetch(`${config.public.apiBase}/api/clans`, {
-      method: "POST",
+      method: 'POST',
       body: {
         name: createForm.value.name,
-        description: createForm.value.description,
-      },
+        description: createForm.value.description
+      }
     });
 
     if (response.ok) {
       showCreateModal.value = false;
-      createForm.value = { name: "", description: "" };
+      createForm.value = { name: '', description: '' };
       await authStore.checkAuth(); // Обновляем данные пользователя
       await loadClans();
     } else {
       error.value = response.error;
     }
   } catch (error) {
-    console.error("Ошибка создания клана:", error);
-    error.value = "Ошибка создания клана";
+    console.error('Ошибка создания клана:', error);
+    error.value = 'Ошибка создания клана';
   }
 
   isLoading.value = false;
 };
 
 // Вступление в клан
-const joinClan = async (clanId) => {
+const joinClan = async clanId => {
   try {
     const config = useRuntimeConfig();
     const response = await $fetch(
       `${config.public.apiBase}/api/clans/${clanId}/join`,
       {
-        method: "POST",
+        method: 'POST'
       }
     );
 
@@ -301,8 +304,8 @@ const joinClan = async (clanId) => {
       error.value = response.error;
     }
   } catch (error) {
-    console.error("Ошибка вступления в клан:", error);
-    error.value = "Ошибка вступления в клан";
+    console.error('Ошибка вступления в клан:', error);
+    error.value = 'Ошибка вступления в клан';
   }
 };
 
@@ -312,6 +315,6 @@ onMounted(() => {
 
 // Middleware для проверки аутентификации
 definePageMeta({
-  middleware: "auth",
+  middleware: 'auth'
 });
 </script>

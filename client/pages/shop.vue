@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-6">
+    <!-- Навигация -->
+    <PageNavigation :breadcrumbs="[{ label: 'Магазин' }]" />
+
     <div class="text-center">
       <h1 class="text-3xl font-bold text-white mb-2">🛒 Магазин</h1>
       <p class="text-gray-400">Покупайте оружие, броню и расходники</p>
@@ -197,7 +200,7 @@ const buyItem = async item => {
     loading.value = true;
     const config = useRuntimeConfig();
     const response = await $fetch(
-      `${config.public.apiBase}/api/item/${item.id}/buy`,
+      `${config.public.apiBase}/api/item/${item._id}/buy`,
       {
         method: 'POST',
         headers: {

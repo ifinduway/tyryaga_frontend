@@ -21,9 +21,4 @@ import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
-
-// Инициализация при загрузке
-onMounted(async () => {
-  await authStore.checkAuth();
-});
 </script>

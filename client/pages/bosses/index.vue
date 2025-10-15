@@ -1,5 +1,8 @@
 <template>
   <div class="space-y-6">
+    <!-- Навигация -->
+    <PageNavigation :breadcrumbs="[{ label: 'Боссы' }]" />
+
     <div class="text-center">
       <h1 class="text-3xl font-bold text-white mb-2">👹 Боссы</h1>
       <p class="text-gray-400">Сражайтесь с боссами и получайте награды</p>
@@ -53,7 +56,7 @@
         :class="{
           'border-l-4 border-green-500': boss.state === 'active',
           'border-l-4 border-gray-500': boss.state === 'idle',
-          'border-l-4 border-red-500': boss.state === 'dead',
+          'border-l-4 border-red-500': boss.state === 'dead'
         }"
         @click="navigateTo(`/bosses/${boss.id}`)"
       >
@@ -63,7 +66,7 @@
             :class="{
               'animate-pulse': boss.state === 'active',
               'animate-bounce': boss.state === 'idle',
-              'animate-spin': boss.state === 'dead',
+              'animate-spin': boss.state === 'dead'
             }"
           >
             👹
@@ -78,7 +81,7 @@
               :class="{
                 'bg-green-600 text-white': boss.state === 'active',
                 'bg-gray-600 text-white': boss.state === 'idle',
-                'bg-red-600 text-white': boss.state === 'dead',
+                'bg-red-600 text-white': boss.state === 'dead'
               }"
             >
               {{ getStatusText(boss.state) }}
@@ -128,30 +131,30 @@
 
 <script setup>
 const bosses = ref([]);
-const filter = ref("all");
+const filter = ref('all');
 
 const filteredBosses = computed(() => {
-  if (filter.value === "all") {
+  if (filter.value === 'all') {
     return bosses.value;
   }
-  return bosses.value.filter((boss) => boss.state === filter.value);
+  return bosses.value.filter(boss => boss.state === filter.value);
 });
 
-const getStatusText = (state) => {
+const getStatusText = state => {
   switch (state) {
-    case "active":
-      return "Активен";
-    case "idle":
-      return "Неактивен";
-    case "dead":
-      return "Побежден";
+    case 'active':
+      return 'Активен';
+    case 'idle':
+      return 'Неактивен';
+    case 'dead':
+      return 'Побежден';
     default:
-      return "Неизвестно";
+      return 'Неизвестно';
   }
 };
 
-const formatMoney = (amount) => {
-  return new Intl.NumberFormat("ru-RU").format(amount);
+const formatMoney = amount => {
+  return new Intl.NumberFormat('ru-RU').format(amount);
 };
 
 // Загружаем список боссов
@@ -162,15 +165,15 @@ const loadBosses = async () => {
 
     const response = await $fetch(`${config.public.apiBase}/api/boss`, {
       headers: {
-        Authorization: `Bearer ${authStore.token}`,
-      },
+        Authorization: `Bearer ${authStore.token}`
+      }
     });
 
     if (response.ok) {
       bosses.value = response.data.bosses;
     }
   } catch (error) {
-    console.error("Ошибка загрузки боссов:", error);
+    console.error('Ошибка загрузки боссов:', error);
   }
 };
 
@@ -180,6 +183,6 @@ onMounted(() => {
 
 // Middleware для проверки аутентификации
 definePageMeta({
-  middleware: "auth",
+  middleware: 'auth'
 });
 </script>

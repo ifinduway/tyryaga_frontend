@@ -16,15 +16,9 @@
             <!-- Энергия -->
             <div class="flex items-center space-x-2">
               <span class="text-sm text-gray-400">⚡</span>
-              <div class="w-20 bg-gray-700 rounded-full h-2">
-                <div
-                  class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  :style="{ width: `${user?.energy || 0}%` }"
-                ></div>
-              </div>
-              <span class="text-sm text-blue-400"
-                >{{ user?.energy || 0 }}/100</span
-              >
+              <span class="text-sm text-blue-400">{{
+                formatMoney(user?.energy || 0)
+              }}</span>
             </div>
 
             <!-- Деньги -->
@@ -69,6 +63,14 @@
             :class="{ 'bg-gray-700': $route.path === '/clans' }"
           >
             🏴 Братва
+          </NuxtLink>
+
+          <NuxtLink
+            to="/work"
+            class="px-2 py-1 rounded text-xs hover:bg-gray-700 transition-colors"
+            :class="{ 'bg-gray-700': $route.path === '/work' }"
+          >
+            💼 Работа
           </NuxtLink>
 
           <NuxtLink

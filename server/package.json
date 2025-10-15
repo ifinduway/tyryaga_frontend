@@ -11,7 +11,14 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:bosses": "node src/scripts/seedBosses.js",
+    "seed:items": "node src/scripts/seedItems.js",
+    "seed:works": "node src/scripts/seedWorks.js",
+    "restore:energy": "node src/scripts/restoreUserEnergy.js",
+    "update:energy": "node src/scripts/updateUserEnergy.js",
+    "test:rewards": "node src/scripts/testBossRewards.js",
+    "test:shop": "node src/scripts/testShopAndInventory.js"
   },
   "keywords": [
     "game",
