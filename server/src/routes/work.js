@@ -236,12 +236,18 @@ router.post('/session/:sessionId/complete', async (req, res) => {
       user.money += work.moneyReward;
       user.exp += work.expReward;
 
-      // Проверяем повышение уровня
-      const expToNextLevel = user.level * 100;
-      if (user.exp >= expToNextLevel) {
+      // Проверяем повышение уровня (может быть несколько уровней сразу)
+      let leveledUp = false;
+      while (user.exp >= user.level * 1000) {
+        const expToNextLevel = user.level * 1000;
         user.level += 1;
         user.exp -= expToNextLevel;
-        user.energy = 100; // Полное восстановление энергии при повышении уровня
+        leveledUp = true;
+      }
+
+      // Полное восстановление энергии при повышении уровня
+      if (leveledUp) {
+        user.energy = Math.min(user.energy + 100, 1000000); // Добавляем 100 энергии за каждое повышение
       }
 
       await user.save();
@@ -249,13 +255,13 @@ router.post('/session/:sessionId/complete', async (req, res) => {
 
       res.json({
         ok: true,
-        message: `Работа "${work.name}" завершена успешно!`,
+        message: `Работа "${work.name}" завершена успешно!${leveledUp ? ' Вы повысили уровень!' : ''}`,
         data: {
           rewards: userWork.rewards,
           newLevel: user.level,
           newMoney: user.money,
           newExp: user.exp,
-          leveledUp: user.level > 1
+          leveledUp: leveledUp
         }
       });
     } else {

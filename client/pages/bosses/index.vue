@@ -2,7 +2,6 @@
   <div class="space-y-6">
     <!-- Навигация -->
     <PageNavigation :breadcrumbs="[{ label: 'Боссы' }]" />
-
     <div class="text-center">
       <h1 class="text-3xl font-bold text-white mb-2">👹 Боссы</h1>
       <p class="text-gray-400">Сражайтесь с боссами и получайте награды</p>

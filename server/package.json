@@ -18,7 +18,8 @@
     "restore:energy": "node src/scripts/restoreUserEnergy.js",
     "update:energy": "node src/scripts/updateUserEnergy.js",
     "test:rewards": "node src/scripts/testBossRewards.js",
-    "test:shop": "node src/scripts/testShopAndInventory.js"
+    "test:shop": "node src/scripts/testShopAndInventory.js",
+    "fix:level": "node src/scripts/fixUserLevel.js"
   },
   "keywords": [
     "game",

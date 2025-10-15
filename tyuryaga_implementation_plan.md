@@ -151,6 +151,24 @@ README.md
 - `io.to('boss_<id>').emit('bossUpdate', { hp, log })`
 - `io.to('boss_<id>').emit('bossDefeated', { rewards })`
 
+Актуальная структура события `bossUpdate` (15.10.2025):
+
+```
+{
+  bossId: ObjectId,
+  currentHp: number,
+  maxHp: number,
+  damageDealt: number,         // = realDamage
+  realDamage: number,          // точный нанесённый урон
+  damage: number,              // базовый урон из клиента (10 или 20)
+  dmgMult: number,             // множитель урона игрока
+  dealtBy: { userId, nickname },
+  crit: boolean,               // был ли крит
+  critEffectiveMult: number,   // 1 или critDamageMultiplier
+  participants: Array<{ userId, nickname, level, damageDealt, joinedAt }>
+}
+```
+
 **Замечание по безопасности:** все изменения состояния (урон боссу, покупка) проверять на сервере и не доверять клиенту.
 
 ## 7. Модуль босс-боёв (кооператив)
@@ -164,8 +182,8 @@ README.md
 ### Поток данных (упрощённый)
 
 1. Игрок подключается и `joinBoss(bossId)` → добавляется в комнату `boss_<bossId>`
-2. Клиент отправляет `dealDamage` с желаемым уроном
-3. Сервер валидирует: есть ли у игрока энергия, cooldown, оружие; пересчитывает реальный урон
+2. Клиент отправляет `dealDamage` с базовым уроном (сейчас фиксированные варианты 10 или 20)
+3. Сервер валидирует; пересчитывает реальный урон по характеристикам игрока
 4. Сервер изменяет `currentHp` босса и эмитит `bossUpdate` всем участникам
 5. Если `currentHp <= 0` → `bossDefeated` и запускается распределение наград
 
@@ -197,6 +215,37 @@ socket.on("dealDamage", async ({ bossId, damage }) => {
     io.to(`boss_${bossId}`).emit("bossDefeated", { rewards });
   }
 });
+```
+
+### Обновления механики атак (15.10.2025)
+
+- Удалён расход энергии при ударах по боссу (временное решение для балансировки и тестов).
+- На клиенте (страница босса) вместо инпута добавлены две кнопки:
+  - «Базовый удар (10)» → отправляет `dealDamage` с `damage = 10`;
+  - «Сильный удар (20)» → отправляет `dealDamage` с `damage = 20`.
+- Пересмотрена серверная формула урона:
+  - УБРАН бонус за уровень;
+  - Урон считается как: `realDamage = baseDamage × damageMultiplier × (isCrit ? critDamageMultiplier : 1)`;
+  - Шанс крита: `critChance` (в процентах).
+- Событие `bossUpdate` расширено полями: `realDamage`, `damage`, `dmgMult`, `crit`, `critEffectiveMult`, а также массивом `participants` с никнеймами/уровнями.
+- Лог боя на клиенте показывает точный урон и разложение: `base`, `dmgMult`, `critMult`.
+
+### Характеристики игрока
+
+Добавлены в модель пользователя и учитываются при расчёте урона:
+
+- `damageMultiplier` (по умолчанию 1)
+- `critDamageMultiplier` (по умолчанию 2)
+- `critChance` (0..100, по умолчанию 0)
+
+Скрипт для обновления статов пользователя:
+
+```
+node server/src/scripts/updateUserStats.js <nickname> [damageMultiplier] [critDamageMultiplier] [critChance]
+
+// примеры
+node server/src/scripts/updateUserStats.js fuway 100 2 80
+node server/src/scripts/updateUserStats.js fuway 50 3 20
 ```
 
 ### Распределение наград

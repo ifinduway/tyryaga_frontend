@@ -55,9 +55,13 @@ userInventorySchema.index({ userId: 1 });
 
 // Метод для добавления предмета в инвентарь
 userInventorySchema.methods.addItem = function (itemId, quantity = 1) {
-  const existingItem = this.items.find(
-    item => item.itemId.toString() === itemId.toString()
-  );
+  const targetId = (itemId && itemId._id ? itemId._id : itemId).toString();
+  const existingItem = this.items.find(item => {
+    const currentId = (
+      item.itemId && item.itemId._id ? item.itemId._id : item.itemId
+    ).toString();
+    return currentId === targetId;
+  });
 
   if (existingItem) {
     existingItem.quantity += quantity;
@@ -73,9 +77,13 @@ userInventorySchema.methods.addItem = function (itemId, quantity = 1) {
 
 // Метод для удаления предмета из инвентаря
 userInventorySchema.methods.removeItem = function (itemId, quantity = 1) {
-  const itemIndex = this.items.findIndex(
-    item => item.itemId.toString() === itemId.toString()
-  );
+  const targetId = (itemId && itemId._id ? itemId._id : itemId).toString();
+  const itemIndex = this.items.findIndex(item => {
+    const currentId = (
+      item.itemId && item.itemId._id ? item.itemId._id : item.itemId
+    ).toString();
+    return currentId === targetId;
+  });
 
   if (itemIndex !== -1) {
     const item = this.items[itemIndex];
@@ -91,9 +99,13 @@ userInventorySchema.methods.removeItem = function (itemId, quantity = 1) {
 
 // Метод для экипировки предмета
 userInventorySchema.methods.equipItem = function (itemId, slot) {
-  const item = this.items.find(
-    item => item.itemId.toString() === itemId.toString()
-  );
+  const targetId = (itemId && itemId._id ? itemId._id : itemId).toString();
+  const item = this.items.find(it => {
+    const currentId = (
+      it.itemId && it.itemId._id ? it.itemId._id : it.itemId
+    ).toString();
+    return currentId === targetId;
+  });
 
   if (item) {
     // Снимаем предмет с текущего слота
@@ -114,9 +126,13 @@ userInventorySchema.methods.equipItem = function (itemId, slot) {
 
 // Метод для снятия предмета
 userInventorySchema.methods.unequipItem = function (itemId) {
-  const item = this.items.find(
-    item => item.itemId.toString() === itemId.toString()
-  );
+  const targetId = (itemId && itemId._id ? itemId._id : itemId).toString();
+  const item = this.items.find(it => {
+    const currentId = (
+      it.itemId && it.itemId._id ? it.itemId._id : it.itemId
+    ).toString();
+    return currentId === targetId;
+  });
 
   if (item) {
     item.equipped = false;

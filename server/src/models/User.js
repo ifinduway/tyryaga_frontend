@@ -42,6 +42,25 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    // Боевые характеристики
+    damageMultiplier: {
+      type: Number,
+      default: 100,
+      min: 0.1,
+      max: 100
+    },
+    critDamageMultiplier: {
+      type: Number,
+      default: 2,
+      min: 1,
+      max: 100
+    },
+    critChance: {
+      type: Number, // процент, 0..100
+      default: 100,
+      min: 0,
+      max: 100
+    },
     energy: {
       type: Number,
       default: 100,

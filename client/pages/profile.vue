@@ -105,6 +105,38 @@
           <div v-if="item.equipped" class="text-xs text-yellow-400 mt-2">
             🔧 Экипировано
           </div>
+
+          <!-- Действия -->
+          <div class="mt-3 flex flex-wrap gap-2">
+            <!-- Расходники -->
+            <button
+              v-if="item.itemId.consumable"
+              class="btn-primary text-xs px-2 py-1"
+              :disabled="invLoading"
+              @click.stop="useItem(item.itemId._id)"
+            >
+              Использовать
+            </button>
+
+            <!-- Экипируемые предметы -->
+            <button
+              v-else-if="!item.equipped"
+              class="btn-secondary text-xs px-2 py-1"
+              :disabled="invLoading"
+              @click.stop="equipItem(item.itemId._id, item.itemId.type)"
+            >
+              Экипировать
+            </button>
+
+            <button
+              v-else
+              class="btn-danger text-xs px-2 py-1"
+              :disabled="invLoading"
+              @click.stop="unequipItem(item.itemId._id)"
+            >
+              Снять
+            </button>
+          </div>
         </div>
       </div>
 
@@ -222,6 +254,7 @@ const user = computed(() => authStore.user);
 
 const clan = ref(null);
 const inventory = ref(null);
+const invLoading = ref(false);
 
 const formatMoney = amount => {
   return new Intl.NumberFormat('ru-RU').format(amount);
@@ -329,4 +362,85 @@ onMounted(() => {
 definePageMeta({
   middleware: 'auth'
 });
+
+// Действия инвентаря
+const useItem = async itemId => {
+  if (invLoading.value) return;
+  invLoading.value = true;
+  try {
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/${itemId}/use`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      }
+    );
+    if (response.ok) {
+      await loadInventory();
+      await authStore.checkAuth();
+    } else {
+      console.error(response.error);
+    }
+  } catch (e) {
+    console.error('Ошибка использования предмета:', e);
+  } finally {
+    invLoading.value = false;
+  }
+};
+
+const equipItem = async (itemId, type) => {
+  if (invLoading.value) return;
+  invLoading.value = true;
+  try {
+    const slotByType = { weapon: 'weapon', armor: 'armor' };
+    const slot = slotByType[type] || null;
+    if (!slot) return;
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/${itemId}/equip`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`
+        },
+        body: { slot }
+      }
+    );
+    if (response.ok) {
+      await loadInventory();
+    } else {
+      console.error(response.error);
+    }
+  } catch (e) {
+    console.error('Ошибка экипировки:', e);
+  } finally {
+    invLoading.value = false;
+  }
+};
+
+const unequipItem = async itemId => {
+  if (invLoading.value) return;
+  invLoading.value = true;
+  try {
+    const config = useRuntimeConfig();
+    const response = await $fetch(
+      `${config.public.apiBase}/api/item/${itemId}/unequip`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      }
+    );
+    if (response.ok) {
+      await loadInventory();
+    } else {
+      console.error(response.error);
+    }
+  } catch (e) {
+    console.error('Ошибка снятия:', e);
+  } finally {
+    invLoading.value = false;
+  }
+};
 </script>

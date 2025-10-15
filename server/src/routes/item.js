@@ -196,6 +196,36 @@ router.post('/:id/equip', async (req, res) => {
       });
     }
 
+    // Проверяем, что предмет существует и принадлежит пользователю
+    const ownedItem = inventory.items.find(
+      i => i.itemId.toString() === itemId.toString()
+    );
+    if (!ownedItem) {
+      return res
+        .status(404)
+        .json({ ok: false, error: 'У вас нет этого предмета' });
+    }
+
+    // Валидируем соответствие слота типу предмета (оружие → weapon, броня → armor)
+    const itemDoc = await Item.findById(itemId);
+    if (!itemDoc) {
+      return res.status(404).json({ ok: false, error: 'Предмет не найден' });
+    }
+
+    if (itemDoc.type === 'consumable') {
+      return res
+        .status(400)
+        .json({ ok: false, error: 'Расходники нельзя экипировать' });
+    }
+
+    const allowedSlotByType = { weapon: 'weapon', armor: 'armor' };
+    const expectedSlot = allowedSlotByType[itemDoc.type];
+    if (!expectedSlot || expectedSlot !== slot) {
+      return res
+        .status(400)
+        .json({ ok: false, error: 'Неверный слот для данного типа предмета' });
+    }
+
     await inventory.equipItem(itemId, slot);
 
     res.json({
@@ -291,14 +321,14 @@ router.post('/:id/use', async (req, res) => {
     const item = inventoryItem.itemId;
     let effectsApplied = [];
 
-    for (const effect of item.effects) {
+    for (const effect of item.effects || []) {
       switch (effect.type) {
         case 'health_restore':
-          user.energy = Math.min(100, user.energy + effect.value);
+          user.energy = Math.min(1000000, user.energy + effect.value);
           effectsApplied.push(`Восстановлено ${effect.value} энергии`);
           break;
         case 'energy_restore':
-          user.energy = Math.min(100, user.energy + effect.value);
+          user.energy = Math.min(1000000, user.energy + effect.value);
           effectsApplied.push(`Восстановлено ${effect.value} энергии`);
           break;
         // Добавить другие эффекты по необходимости
@@ -326,6 +356,41 @@ router.post('/:id/use', async (req, res) => {
       ok: false,
       error: 'Ошибка использования предмета'
     });
+  }
+});
+
+// Список экипированных предметов и агрегированных статов
+router.get('/inventory/me/equipped', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const inventory = await UserInventory.findOne({ userId }).populate(
+      'items.itemId'
+    );
+
+    if (!inventory) {
+      return res.json({ ok: true, data: { equipped: [], stats: {} } });
+    }
+
+    const equipped = inventory.items.filter(i => i.equipped && i.itemId);
+
+    // Агрегируем статы экипированных предметов
+    const baseStats = { damage: 0, defense: 0, energy: 0, health: 0, luck: 0 };
+    const stats = equipped.reduce((acc, invItem) => {
+      const s = invItem.itemId.stats || {};
+      acc.damage += s.damage || 0;
+      acc.defense += s.defense || 0;
+      acc.energy += s.energy || 0;
+      acc.health += s.health || 0;
+      acc.luck += s.luck || 0;
+      return acc;
+    }, baseStats);
+
+    res.json({ ok: true, data: { equipped, stats } });
+  } catch (error) {
+    console.error('Ошибка получения экипированных предметов:', error);
+    res
+      .status(500)
+      .json({ ok: false, error: 'Ошибка получения экипированных предметов' });
   }
 });
 

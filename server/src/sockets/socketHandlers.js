@@ -154,6 +154,13 @@ export const setupSocketHandlers = io => {
         socket.join(roomName);
         console.log('✅ Пользователь присоединился к комнате:', roomName);
 
+        // Заполняем участников ником и уровнем
+        try {
+          await boss.populate('participants.userId', 'nickname level');
+        } catch (e) {
+          console.error('Ошибка populate участников босса:', e);
+        }
+
         // Отправляем текущее состояние босса
         socket.emit('bossState', {
           bossId: boss._id,
@@ -162,7 +169,14 @@ export const setupSocketHandlers = io => {
           currentHp: boss.currentHp,
           level: boss.level,
           state: boss.state,
-          participants: boss.participants.length
+          participants: (boss.participants || []).map(p => ({
+            userId:
+              p.userId?._id?.toString?.() || p.userId?.toString?.() || p.userId,
+            nickname: p.userId?.nickname || 'Игрок',
+            level: p.userId?.level || 1,
+            damageDealt: p.damageDealt || 0,
+            joinedAt: p.joinedAt || null
+          }))
         });
         console.log('📡 Отправлено состояние босса');
 
@@ -210,17 +224,6 @@ export const setupSocketHandlers = io => {
           user?.energy
         );
 
-        // Рассчитываем требуемую энергию (1 энергия = 10 урона)
-        const energyRequired = Math.ceil(damage / 10);
-        console.log('⚡ Требуется энергии:', energyRequired);
-
-        if (!user.hasEnergy(energyRequired)) {
-          console.log('❌ Недостаточно энергии');
-          return socket.emit('error', {
-            message: `Недостаточно энергии. Требуется: ${energyRequired}, доступно: ${user.energy}`
-          });
-        }
-
         const boss = await Boss.findById(bossId);
         console.log('👹 Найден босс:', boss?.name, 'Состояние:', boss?.state);
 
@@ -229,23 +232,27 @@ export const setupSocketHandlers = io => {
           return socket.emit('error', { message: 'Босс недоступен' });
         }
 
-        // Тратим энергию пропорционально урону
-        user.spendEnergy(energyRequired);
-        await user.save();
-        console.log('⚡ Энергия потрачена, новая энергия:', user.energy);
+        // Рассчитываем реальный урон с учетом характеристик игрока
+        // Базовый урон: damage
+        const dmgMult = Math.max(0.1, user.damageMultiplier || 1);
+        const critMult = Math.max(1, user.critDamageMultiplier || 2);
+        const critChance = Math.min(100, Math.max(0, user.critChance || 0));
 
-        // Рассчитываем реальный урон
-        // Базовый урон = damage
-        // Урон может быть увеличен на основе уровня (бонус 10% за уровень)
-        const levelBonus = 1 + user.level * 0.1; // +10% за уровень
-        const realDamage = Math.floor(damage * levelBonus);
+        let isCrit = Math.random() * 100 < critChance;
+        const realDamage = Math.floor(
+          damage * dmgMult * (isCrit ? critMult : 1)
+        );
         console.log(
           '⚔️ Реальный урон:',
           realDamage,
           '(базовый:',
           damage,
-          ', бонус уровня:',
-          levelBonus,
+          ', множитель урона:',
+          dmgMult,
+          ', крит?:',
+          isCrit,
+          ', крит. множитель:',
+          isCrit ? critMult : 1,
           ')'
         );
 
@@ -264,16 +271,38 @@ export const setupSocketHandlers = io => {
           console.log('👥 Количество сокетов в комнате:', socketsInRoom.length);
 
           // Отправляем обновление всем участникам
+          let participantsPayload = [];
+          try {
+            await boss.populate('participants.userId', 'nickname level');
+            participantsPayload = (boss.participants || []).map(p => ({
+              userId:
+                p.userId?._id?.toString?.() ||
+                p.userId?.toString?.() ||
+                p.userId,
+              nickname: p.userId?.nickname || 'Игрок',
+              level: p.userId?.level || 1,
+              damageDealt: p.damageDealt || 0,
+              joinedAt: p.joinedAt || null
+            }));
+          } catch (e) {
+            console.error('Ошибка populate участников при обновлении:', e);
+          }
+
           const updateData = {
             bossId: boss._id,
             currentHp: boss.currentHp,
             maxHp: boss.maxHp,
             damageDealt: realDamage,
+            realDamage: realDamage,
+            damage: damage,
+            dmgMult: dmgMult,
             dealtBy: {
               userId: socket.userId,
               nickname: socket.user.nickname
             },
-            participants: boss.participants.length
+            crit: isCrit,
+            critEffectiveMult: isCrit ? critMult : 1,
+            participants: participantsPayload
           };
 
           console.log('📦 Данные для отправки:', updateData);
@@ -356,9 +385,9 @@ export const setupSocketHandlers = io => {
             user.money += userRewards.money;
             user.exp += userRewards.exp;
 
-            // Проверяем повышение уровня
-            const expToNextLevel = user.level * 1000;
-            if (user.exp >= expToNextLevel) {
+            // Проверяем повышение уровня (может быть несколько уровней сразу)
+            while (user.exp >= user.level * 1000) {
+              const expToNextLevel = user.level * 1000;
               user.level += 1;
               user.exp -= expToNextLevel;
             }
