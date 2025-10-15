@@ -54,8 +54,7 @@ const userInventorySchema = new mongoose.Schema(
   }
 );
 
-// Индекс для быстрого поиска по пользователю
-userInventorySchema.index({ userId: 1 });
+// Индекс для быстрого поиска по пользователю уже определен в схеме через index: true
 
 // Метод для добавления предмета в инвентарь
 userInventorySchema.methods.addItem = function (itemId, quantity = 1) {

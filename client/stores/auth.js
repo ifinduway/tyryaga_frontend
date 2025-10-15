@@ -40,6 +40,29 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   };
 
+  // Обновление статистики пользователя (деньги, уровень, опыт)
+  const updateUserStats = stats => {
+    if (user.value) {
+      console.log('🔄 Обновление статистики пользователя:', {
+        old: {
+          money: user.value.money,
+          exp: user.value.exp,
+          level: user.value.level
+        },
+        new: stats
+      });
+      user.value = {
+        ...user.value,
+        ...stats
+      };
+      console.log('✅ Статистика обновлена:', {
+        money: user.value.money,
+        exp: user.value.exp,
+        level: user.value.level
+      });
+    }
+  };
+
   // Выход из системы
   const logout = () => {
     clearToken();
@@ -119,7 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   return {
-    user: readonly(user),
+    user: computed(() => user.value),
     token,
     isAuthenticated,
     login,
@@ -127,6 +150,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     checkAuth,
     setUser,
-    clearUser
+    clearUser,
+    updateUserStats
   };
 });

@@ -97,14 +97,21 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
-    bossKills: {
+    // Статистика по боссам
+    bossStats: {
       type: Map,
-      of: Number,
+      of: {
+        kills: { type: Number, default: 0 },
+        attempts: { type: Number, default: 0 },
+        bestTime: { type: Number, default: 0 }, // в миллисекундах
+        lastKilledAt: { type: Date, default: null }
+      },
       default: new Map()
     },
-    currentBossId: {
+    // Активный инстанс босса
+    activeBossInstance: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Boss',
+      ref: 'BossInstance',
       default: null
     }
   },
@@ -113,9 +120,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Индексы для оптимизации
-userSchema.index({ email: 1 });
-userSchema.index({ nickname: 1 });
+// Индексы для оптимизации (email и nickname уже имеют unique: true, поэтому явные индексы не нужны)
 userSchema.index({ clanId: 1 });
 userSchema.index({ online: 1 });
 

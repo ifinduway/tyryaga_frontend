@@ -10,17 +10,20 @@ import mongoose from 'mongoose';
 // Импорт маршрутов
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
-import bossRoutes from './routes/boss.js';
+// import bossRoutes from './routes/boss.js'; // Старые роуты (можно удалить после полного перехода)
+import bossTemplateRoutes from './routes/bossTemplate.js';
+import bossInstanceRoutes from './routes/bossInstance.js';
 import clanRoutes from './routes/clan.js';
 import itemRoutes from './routes/item.js';
 import workRoutes from './routes/work.js';
+import friendRoutes from './routes/friend.js';
 
 // Импорт middleware
 import { authenticateToken } from './middleware/auth.js';
 import { socketAuth } from './middleware/socketAuth.js';
 
 // Импорт socket обработчиков
-import { setupSocketHandlers } from './sockets/index.js';
+import { setupSocketHandlers, setIO } from './sockets/index.js';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -73,10 +76,15 @@ if (process.env.NODE_ENV === 'development') {
 // Маршруты
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/user', authenticateToken, userRoutes);
-app.use('/api/boss', authenticateToken, bossRoutes);
+// Новые роуты боссов (более специфичные должны быть выше)
+app.use('/api/boss/template', bossTemplateRoutes);
+app.use('/api/boss/instance', bossInstanceRoutes);
+// Старые роуты боссов (можно удалить после полного перехода на новую систему)
+// app.use('/api/boss', authenticateToken, bossRoutes);
 app.use('/api/clan', authenticateToken, clanRoutes);
 app.use('/api/item', authenticateToken, itemRoutes);
 app.use('/api/work', authenticateToken, workRoutes);
+app.use('/api/friends', authenticateToken, friendRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -89,6 +97,9 @@ app.get('/api/health', (req, res) => {
 
 // Socket.io middleware для аутентификации
 io.use(socketAuth);
+
+// Сохраняем экземпляр io для использования в других модулях
+setIO(io);
 
 // Настройка socket обработчиков
 setupSocketHandlers(io);

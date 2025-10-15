@@ -13,11 +13,15 @@
 
     <!-- Глобальный чат -->
     <GlobalChat v-if="isAuthenticated" />
+
+    <!-- Контейнер уведомлений -->
+    <NotificationContainer />
   </div>
 </template>
 
 <script setup>
 import { useAuthStore } from '~/stores/auth';
+import NotificationContainer from '~/components/organisms/NotificationContainer.vue';
 
 const authStore = useAuthStore();
 const isAuthenticated = computed(() => authStore.isAuthenticated);

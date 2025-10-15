@@ -58,6 +58,14 @@
           </NuxtLink>
 
           <NuxtLink
+            to="/friends"
+            class="px-2 py-1 rounded text-xs hover:bg-gray-700 transition-colors"
+            :class="{ 'bg-gray-700': $route.path === '/friends' }"
+          >
+            👥 Друзья
+          </NuxtLink>
+
+          <NuxtLink
             to="/clans"
             class="px-2 py-1 rounded text-xs hover:bg-gray-700 transition-colors"
             :class="{ 'bg-gray-700': $route.path === '/clans' }"

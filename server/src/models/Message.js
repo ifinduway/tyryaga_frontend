@@ -1,39 +1,40 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema(
   {
     room: {
       type: String,
       required: true,
-      enum: ["global", "clan", "boss"],
+      enum: ['global', 'clan', 'boss']
     },
     roomId: {
       type: String,
-      default: null, // clan_<id> или boss_<id>
+      default: null // clan_<id> или boss_<id>
     },
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+      ref: 'User',
+      required: false, // Может быть null для системных сообщений
+      default: null
     },
     text: {
       type: String,
       required: true,
       trim: true,
-      maxlength: 500,
+      maxlength: 500
     },
     messageType: {
       type: String,
-      enum: ["text", "system", "boss_update", "boss_defeated"],
-      default: "text",
+      enum: ['text', 'system', 'boss_update', 'boss_defeated'],
+      default: 'text'
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
-      default: {},
-    },
+      default: {}
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
@@ -43,7 +44,7 @@ messageSchema.index({ senderId: 1 });
 messageSchema.index({ createdAt: -1 });
 
 // Виртуальное поле для полного имени комнаты
-messageSchema.virtual("fullRoomName").get(function () {
+messageSchema.virtual('fullRoomName').get(function () {
   if (this.roomId) {
     return `${this.room}_${this.roomId}`;
   }
@@ -62,7 +63,7 @@ messageSchema.statics.getRoomMessages = function (
   }
 
   return this.find(query)
-    .populate("senderId", "nickname")
+    .populate('senderId', 'nickname')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -80,9 +81,9 @@ messageSchema.statics.createSystemMessage = function (
     roomId,
     senderId: null, // Системное сообщение
     text,
-    messageType: "system",
-    metadata,
+    messageType: 'system',
+    metadata
   });
 };
 
-export default mongoose.model("Message", messageSchema);
+export default mongoose.model('Message', messageSchema);
